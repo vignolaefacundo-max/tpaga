@@ -20,9 +20,13 @@ st.sidebar.subheader("📦 Disponibilidad de Chips")
 chips_pro = st.sidebar.number_input("Stock máximo de Chips Pro", min_value=1000, max_value=10000, value=3500, step=100)
 
 st.sidebar.subheader("📈 Compromisos y Techos de Mercado")
-min_gama_media = st.sidebar.number_input("Compromiso Mínimo Gama Media", min_value=500, max_value=3000, value=1500, step=100)
-max_tablets = st.sidebar.number_input("Demanda Máxima Tablets", min_value=500, max_value=3000, value=1200, step=100)
-max_gama_baja = st.sidebar.number_input("Demanda Máxima Gama Baja", min_value=500, max_value=4000, value=2000, step=100)
+min_gama_media = st.sidebar.number_input("Compromiso Mínimo Gama Media (x3 + x4)", min_value=500, max_value=3000, value=1500, step=100)
+max_tablets = st.sidebar.number_input("Demanda Máxima Tablets (x7 + x8)", min_value=500, max_value=3000, value=1200, step=100)
+max_gama_baja = st.sidebar.number_input("Demanda Máxima Gama Baja (x5 + x6)", min_value=500, max_value=4000, value=2000, step=100)
+
+# NUEVA RESTRICCIÓN: Mínimo general para todos los modelos
+st.sidebar.subheader("🛡️ Producción Mínima Obligatoria")
+min_produccion_general = st.sidebar.slider("Mínimo requerido de cada modelo (x_i >= valor)", min_value=0, max_value=500, value=50, step=10)
 
 # ==========================================
 # PANTALLA PRINCIPAL: BOTÓN Y RESULTADOS
@@ -30,10 +34,9 @@ max_gama_baja = st.sidebar.number_input("Demanda Máxima Gama Baja", min_value=5
 st.subheader("🚀 Ejecutar el Modelo")
 st.write("Haz clic en el botón de abajo para calcular la producción óptima con tus nuevos parámetros.")
 
-# El botón de aceptar/resolver que solicitaste
 if st.button("Resolver Optimización"):
     
-    # 1. Coeficientes estáticos de la función objetivo (Ganancias en USD)
+    # 1. Coeficientes de la función objetivo (Ganancias en USD)
     c = [-45, -65, -25, -38, -15, -22, -30, -50]
 
     # 2. Matriz de restricciones con las variables x1 a x8
@@ -46,14 +49,18 @@ if st.button("Resolver Optimización"):
         [0.0, 0.0, 0.0,  0.0, 1.0, 1.0, 0.0, 0.0]   # E.2 Max Gama Baja
     ]
 
-    # 3. Límites usando las variables que modificó el usuario
+    # 3. Límites de las restricciones de grupo
     bl = [-np.inf, -np.inf, -np.inf, min_gama_media, -np.inf, -np.inf]
     bu = [horas_smt, horas_testing, chips_pro, np.inf, max_tablets, max_gama_baja]
 
-    # 4. Configuración interna del optimizador MILP
+    # 4. CONFIGURACIÓN DE LÍMITES POR VARIABLE (Bounds)
+    # Aquí aplicamos el mínimo general elegido por el usuario a todas las variables individuales (x1 a x8)
+    limite_inferior = [min_produccion_general] * 8
+    limite_superior = [np.inf] * 8
+    
     constraints = LinearConstraint(A, bl, bu)
-    bounds = Bounds([0] * 8, [np.inf] * 8)
-    integridad_variables = [1] * 8  # Fuerza valores enteros completos
+    bounds = Bounds(limite_inferior, limite_superior)
+    integridad_variables = [1] * 8  
 
     # 5. Ejecución del cálculo matemático
     resultado = milp(
@@ -69,11 +76,9 @@ if st.button("Resolver Optimización"):
     st.info(f"**Mensaje del sistema:** {resultado.message}")
     
     if resultado.success:
-        # Formato de dinero destacado
         ganancia_total = int(-resultado.fun)
         st.success(f"## 💰 Ganancia Máxima Mensual: USD {ganancia_total:,}")
         
-        # Estructura visual en dos columnas para ordenar las 8 variables
         col1, col2 = st.columns(2)
         
         nombres = [
@@ -97,4 +102,4 @@ if st.button("Resolver Optimización"):
             for i in range(6, 8):
                 st.metric(label=nombres[i], value=f"{int(resultado.x[i])} uds")
     else:
-        st.error("❌ Los parámetros actuales no permiten encontrar una solución válida. Intenta flexibilizar las restricciones.")
+        st.error("❌ Los parámetros actuales no permiten encontrar una solución válida. Si el mínimo de producción por modelo es muy alto, el tiempo de las máquinas o los chips disponibles no alcanzan. ¡Prueba bajando el mínimo requerido!")
