@@ -3,7 +3,7 @@ from scipy.optimize import milp, LinearConstraint, Bounds
 import streamlit as st
 
 # Configuración principal de la aplicación web
-st.set_page_config(page_title="Optimizador de Producción", page_icon="📊", layout="wide")
+st.set_page_config(page_title="Optimizador de Production", page_icon="📊", layout="wide")
 st.title("📊 Optimizador de Producción de Placas Interactivo")
 st.write("Modifica los parámetros y mínimos individuales en la barra lateral y presiona el botón para resolver el modelo.")
 
@@ -61,14 +61,15 @@ if st.button("Resolver Optimización"):
     bl = [-np.inf, -np.inf, -np.inf, min_gama_media, -np.inf, -np.inf]
     bu = [horas_smt, horas_testing, chips_pro, np.inf, max_tablets, max_gama_baja]
 
-    # 4. CONFIGURACIÓN DE LÍMITES INDIVIDUALES (Bounds personalizados)
-    # Se arma la lista con los 8 mínimos individuales ingresados por el usuario
+    # 4. CONFIGURACIÓN DE LÍMITES INDIVIDUALES (Corregido)
     limite_inferior = [min_x1, min_x2, min_x3, min_x4, min_x5, min_x6, min_x7, min_x8]
     limite_superior = [np.inf] * 8
     
     constraints = LinearConstraint(A, bl, bu)
     bounds = Bounds(limite_inferior, limite_superior)
-    integridad_variables = * 8  
+    
+    # Aquí estaba el error, ahora usa la lista correcta [1] * 8
+    integridad_variables = [1] * 8  
 
     # 5. Ejecución del cálculo matemático
     resultado = milp(
